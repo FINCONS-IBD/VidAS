@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?><project-modules id="moduleCoreId" project-version="1.5.0">
+    <wb-module deploy-name="PSY_VideoSService-0.0.1-SNAPSHOT">
+        <wb-resource deploy-path="/WEB-INF/web.xml" source-path="/WebContent/WEB-INF/web.xml"/>
+        <wb-resource deploy-path="/WEB-INF/classes" source-path="/src"/>
+        <wb-resource deploy-path="/WEB-INF/classes" source-path="/resources"/>
+        <wb-resource deploy-path="/" source-path="/target/m2e-wtp/web-resources"/>
+        <wb-resource deploy-path="/" source-path="/src/main/webapp" tag="defaultRootSource"/>
+        <dependent-module archiveName="Storage_Service_DBManagement-0.0.1.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/Storage_Service_DBManagement/Storage_Service_DBManagement">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
+        <property name="java-output-path" value="/PSY_Video_Storage_Service/target/classes"/>
+        <property name="component.exclusion.patterns"/>
+        <property name="context-root" value="PSY_VideoSService"/>
+    </wb-module>
+</project-modules>

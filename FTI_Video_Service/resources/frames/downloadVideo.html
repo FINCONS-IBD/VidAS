@@ -1,0 +1,316 @@
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/mainTab.css">
+	
+<script type="text/javascript" src="scripts/abeClient/FileUtilsChrome.js"></script>
+<script type="text/javascript" src="scripts/abeClient/FileUtilsGenericBrowser.js"></script>
+<script type="text/javascript" src="scripts/abeClient/FileUtils.js"></script>
+<script>
+var manageVideo = true;
+var username = sessionStorage.getItem('user');
+var videoService = sessionStorage.getItem('videoServ');
+
+
+
+$(document).ready(function(){
+	//check authorization to perform DELETE operation
+	debugger;
+	var sJWT = generateRequestToken("DELETE", videoService, "", username);
+	var tokenDeleteElem = requestToken("deleteElement", sJWT, null);
+	if(tokenDeleteElem == null || tokenDeleteElem == ""){
+		manageVideo = false;
+	}
+	
+	
+	$(".treeSpinner").show();
+	prepareTreeVideo("#listVideos", "#listTreeVideo", "#nameFileToDownload", username, videoService, "downloadVideo", manageVideo);
+	$("#listTreeVideo").change(function() {
+		$(".treeSpinner").hide();
+	});
+// 	var personalKey= sessionStorage.getItem("personalKey");
+// 	var publicKey= sessionStorage.getItem("publicKey");
+// 	console.log(personalKey, publicKey);
+	$("#nameFileToDownload").val("");
+// 	if((publicKey==null || publicKey=="") && (personalKey==null || personalKey=="")){
+		
+// 		$('#errorKeyDownload').show();
+// 		$("#decryptFileButton").prop('disabled', true);
+// 	}else{
+// 		$('#publicKeyDec').val(publicKey);
+// 		$('#personalKeyDec').val(personalKey);
+// 		$("#decryptFileButton").prop('disabled', false);
+// 		$('#errorKeyDownload').hide();
+// 	}
+	var abeProxyClient= new AbeProxyInterface(Util.abeConfig);
+	var fileProtector= new FileProtector(abeProxyClient);
+	debugger;
+	$("#decryptFileButton").click(function() {		
+		console.log("start decryption");
+		$("#errorFilterDecrtyption").hide();
+		$("#failVideoDownload").hide();
+		var nomeFile=  $("#nameFileToDownload").val();
+		if(nomeFile==null || nomeFile==""){
+			 $("#nameFileToDownload").addClass("error");
+			 $("#errorFilterDecrtyption").show();
+			 return
+		}else{			
+			var getPersonalKeyDeferred=$.Deferred();
+			console.log("startGetKey");
+			$.blockUI({ message: '<div id="conteinerProgressBar"><div id="progressBar"></div> <div id="contentProgressBar">Decrypting 0%</div></div>' });
+			getPersonalKey(getPersonalKeyDeferred);
+			$.when(getPersonalKeyDeferred).done(function (keys) {
+				var personalKey= keys.private;
+			 	var publicKey=  keys.public;
+				$('#publicKeyDec').val(publicKey);
+		 		$('#personalKeyDec').val(personalKey);
+				$("#nameFileToDownload").removeClass("error");
+				var aeskey=null;
+				function decryptSlice(data, sharedSymmetricKeyWC){
+					var deferredDecrypt=$.Deferred();
+					console.log("start decrypt Slice");
+					fileProtector.decryptSlice(data.encryptedFile.encfile, data.encryptedFile.iv, sharedSymmetricKeyWC, deferredDecrypt);
+		        	$.when(deferredDecrypt).done(function (dataDecrypt) {	
+		        		var fileWriterDeferred=$.Deferred();
+		        		try{
+		        	 		if(data.encryptedFile.currentSlice==0){
+		        	 			fileUtils =new FileUtils(data.encryptedFile.fm_filename, data.encryptedFile.sizeFile, data.encryptedFile.type);
+		        	 			console.log("decrypted", dataDecrypt);
+		        	 			fileUtils.writeNewFile(dataDecrypt, fileWriterDeferred);
+		        	 		}else{
+		        	 			console.log("decrypted", dataDecrypt);
+		        	 			fileUtils.appendFile(dataDecrypt, fileWriterDeferred);
+		        	 		}
+		        	 		$.when(fileWriterDeferred).done(function (dataDecrypt) {	
+			        	 		console.log("if"+ (data.encryptedFile.currentSlice+1)+ " "+ data.encryptedFile.totalSlice);
+				        	 	if(data.encryptedFile.currentSlice+1<data.encryptedFile.totalSlice){
+				        	 		requestSlice(data.encryptedFile.currentSlice+1, nomeFile);
+				        	 		return;
+				        	 	}else{
+				        	 		$.unblockUI();
+									$("#progressBar").css('width','100%');
+									$("#contentProgressBar").text('Decrypting 100%');
+				        	 		console.log("Decrypt File End");
+				        	 		fileUtils.download();
+									return;
+				        	 	}
+		        	 		}).fail(function (){
+								console.log("error in writing File");
+								$.unblockUI();	
+					        	return;
+							});
+		        	 	}catch(error){
+		        	 		$.unblockUI();
+		        	 		console.error("Error after decryption", error);
+		        	 	}
+		        	}).fail(function (){
+						console.log("error in deferredDecrypt");
+						$.unblockUI();	
+			        	if(xhr.status==401){
+							logoutUser();
+						}
+					}); 
+				}
+				function requestSlice(currentSlice, nomeFile){
+// 					debugger;
+					console.log(currentSlice);
+					sJWT=generateRequestToken("GET", videoService, nomeFile+"?currentSlice="+currentSlice, username);
+					tokenGetVideo=requestToken(null, sJWT, null);
+					console.log("getVideo");
+					var deferredRequestGetVideo=$.Deferred();
+					executeService(tokenGetVideo, deferredRequestGetVideo, null);
+					$.when(deferredRequestGetVideo).done(function (response) {
+						console.log(response);
+						var numSlice=response.encryptedFile.totalSlice;
+						var perc=100*(currentSlice+1)/numSlice-1;
+						perc=(perc<0)?0:perc;
+						$("#progressBar").css('width',perc+'%');
+						$("#contentProgressBar").text("Decrypting " + perc.toFixed(2)+'%');
+						if(response.code==200){
+							if(currentSlice==0 || aeskey==null ){
+								var deferredKey=$.Deferred();
+// 								debugger;
+								fileProtector.decryptKey(response.encryptedFile.key_info, personalKey, deferredKey);
+								$.when(deferredKey).done(function (sharedSymmetricKeyWC) {
+									aeskey=sharedSymmetricKeyWC;
+									decryptSlice(response, aeskey);
+								}).fail(function (error){
+									console.error("deferredKey error",error);
+									$.unblockUI();
+									$('#errorKeyDownload').show();
+									setTimeout(function() { $("#errorKeyDownload").hide();}, 5000);	
+								}); 
+							}else{
+								decryptSlice(response, aeskey);
+							}
+// 							}
+							
+// 							var deferredDecrypt=$.Deferred();
+// 							console.log(response.encryptedFile);
+// 							fileProtector.decryptFile(response.encryptedFile, personalKey, deferredDecrypt);
+// 							$.when(deferredDecrypt).done(function (data) {
+// 						        var url = window.URL.createObjectURL(data.file);
+// 						    	var a = document.createElement('a');
+// 						    	document.body.appendChild(a);
+// 						        a.href = url;
+// 						        a.download = data.name;
+// 						        a.click();
+// 						        document.body.removeChild(a);
+// 								$.unblockUI();
+// 							 }).fail(function (error){
+// 									$.unblockUI();
+// 									console.error(error);
+// 									$("#failVideoDownload").show();
+// 							}); 
+							
+							//TODO Decrypt with cpabeAES and download.
+	//						 alert("succ 201");
+	//							setTimeout(function() { $("#successPolicy").hide(); $( "#cancelPolicy" ).click();}, 6000);
+						}else{
+							console.error(error);
+							$("#failVideoDownload").show();
+							$.unblockUI();
+							setTimeout(function() { $("#failVideoDownload").hide();}, 5000);	
+						}
+					 }).fail(function (error){
+	// 					 alert("fail");
+							console.error(error);
+							$.unblockUI();
+							$('#failVideoDownload').show();
+							setTimeout(function() { $("#failVideoDownload").hide();}, 5000);	
+					}); 
+	        }
+				requestSlice(0, nomeFile);
+	    });
+// 			 var url="decryptProxy";
+// 			 var payloadObj = KJUR.jws.JWS.readSafeJSONString(b64utoutf8(tokenGetVideo.split(".")[1]));
+// 				var deferredDecrypt= $.Deferred();
+// 				decrypt(sessionStorage.getItem("userSecret"), payloadObj['secureBrow'], deferredDecrypt);
+// 				$.when(deferredDecrypt).done(function (secureCode) {
+// 					if(secureCode!=null && secureCode!=""){
+// 						var oNewPayload = {};
+// 						var tNewTokenEnd = KJUR.jws.IntDate.get('now') + 3600;
+// 						oNewPayload.sub = username;
+// 						oNewPayload.exp = tNewTokenEnd;
+// 						oNewPayload.token=tokenGetVideo;
+// 						var sNewPayload = JSON.stringify(oNewPayload)
+// 						var newsJWT=KJUR.jws.JWS.sign("HS256", sHeader, sNewPayload, secureCode);
+// 						var actionAutorizhed=payloadObj['action'];
+// 						if(JSON.stringify(actionAutorizhed) == JSON.stringify({})){
+// 							$.unblockUI();
+// 							$("#home").click();
+// 							alert("unAuthorized");
+// 						}else{
+// 							$.ajax({
+// 						         url: url,	// url, //YOU_URL_TO_WHICH_DATA_SEND
+// 						         type: "POST",			// method,
+// 						         dataType: 'json',
+// 						         data:JSON.stringify({publicKey:$('#publicKeyDec').val(), personalKey:$('#personalKeyDec').val(), nameFile:nomeFile}),
+// 						         beforeSend: function(xhr){xhr.setRequestHeader('Authorization', newsJWT);},
+// 						         success: function(data) {
+// 						        	 $.unblockUI();
+// 							         if(data.code==200){
+// 				        	  			window.location.assign(data.url);
+// 							         }else{
+// 							        	 $("#failVideoDownload").show();
+// //											 setTimeout(function() { $("#failVideoDownload").hide();}, 6000);
+// 								     }
+// 								},
+// 				        		error: function(xhr, error, message) {
+// 				        			$.unblockUI();
+// 						        	if(xhr.status==401){
+// 										logoutUser();
+// 						        	}else{
+// 										$("#failVideoDownload").show();
+// //											setTimeout(function() { $("#failVideoDownload").hide();}, 6000);
+// 							        }
+// 								}
+// 				     		});
+// 						}
+// 					}else{
+// 						$.unblockUI();
+// 						console.log("Error SecureCode");
+// 					}
+// 				});
+		}
+
+	});
+	function getPersonalKey(deferred){
+		var tokenGetKey=sessionStorage.getItem("generateKeyToken");
+		var username = sessionStorage.getItem('user');
+		var keygenService = sessionStorage.getItem('keygenServ');
+		if(tokenGetKey==null || !validateTimeToken(tokenGetKey)){
+			var sJWT=generateRequestToken("GET", keygenService, "keygen", username);
+			tokenGetKey=requestToken(null, sJWT, null);
+		}
+		var deferredRequestKey=$.Deferred();
+		 executeService(tokenGetKey, deferredRequestKey, null);
+			$.when(deferredRequestKey).done(function (response) {
+				if(response.code==200){
+					personalKey=response.private;
+					publicKey=response.private;
+					sessionStorage.setItem("personalKey",personalKey);
+					sessionStorage.setItem("publicKey", publicKey);
+					deferred.resolve(response);
+				}else{
+					console.log("error in getPersonalKeyService");
+					$.unblockUI();
+					deferred.reject();
+				}
+			}).fail(function (){
+				console.log("error in getPersonalKeyService");
+				$.unblockUI();	
+	        	if(xhr.status==401){
+					logoutUser();
+				}
+			}); 
+	}
+});
+
+
+</script>
+</head>
+<body>
+	<!-- <div id="smTabs" class="tabs"> -->
+	<div class="perc100">
+		<label style="display: none;" class="error fieldLabel"
+			id="failVideoDownload">Decrypt Failed</label> <label
+			id="errorFilterDecrtyption" class="error fieldLabel"
+			style="display: none;">Error in red field</label> <label
+			id="errorKeyDownload" class="error fieldLabel" style="display: none;">Error in Decryption Key, you can't decrypt this file</label>
+			<label style="display: none;" class="error fieldLabel"
+			id="failDeleteVideo">Video not Deleted</label> 
+			<label style="display: none;" class="success fieldLabel"
+			id="successDeleteVideo">Video Deleted</label>
+			<label style="display: none;" class="error fieldLabel"
+			id="errorDeleteVideoToken">Error in token generation</label>
+	</div>
+	<div id="dialog-confirm" title="Delete Video" style="display: none;">
+		<p><span class="ui-icon ui-icon-alert" style="float:left; margin:12px 12px 20px 0;"></span>This video will be permanently deleted and cannot be recovered. Are you sure?</p>
+	</div>
+	<div>
+		<form method="POST" enctype="multipart/form-data"
+			action="decryptProxy" id="decryptForm">
+			<div class="perc100">
+				<div class="perc50">
+					<div class="treeSpinner"></div>
+					<div id="listVideos" style="text-align: left;" class="perc50">
+						<div id="listTreeVideo"></div>
+					</div>
+				</div>
+				<div class="perc50">
+					<input type="hidden" id="publicKeyDec" name="publicKey"></input> <input
+						type="hidden" id="personalKeyDec" name="personalKey"></input> <label
+						class="fieldLabel" id="fileSelectedLbl"> File Selected</label> <input
+						id="nameFileToDownload" name="nameFile" readonly style="width: auto;"></input>
+				</div>
+			</div>
+			<div class="clear">
+				<input type="button" class="button" id="decryptFileButton"
+					value="Start Decryption" style="width: auto;" />
+			</div>
+
+		</form>
+	</div>
+	<!-- </div> -->
+</body>
+</html>

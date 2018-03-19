@@ -1,0 +1,70 @@
+<html>
+<head>
+<!-- <link rel="stylesheet" type="text/css" href="../css/mainTab.css"> -->
+<script>
+	// 	BLOCKLY SETTINGS {
+	var workspaceViewPolicies = null;
+	var blocklyViewPolicies = {};
+	$.extend(blocklyViewPolicies, Util.blocklyDefaultConfig);
+	blocklyViewPolicies.toolbox = document
+			.getElementById('toolboxViewPolicies');
+	blocklyViewPolicies.readOnly = true;
+	// 	}
+
+	var username = sessionStorage.getItem('user');
+	var policyService = sessionStorage.getItem('policyServ')
+	var modifyTreeFlag = false;
+
+	var configUtilsPolicy = {
+		treeContainer : "#listPolicies",
+		tree : "#listTree",
+		treeSpinner: ".treeSpinner",
+		workspace : null,
+		viewer : "",
+		username : username,
+		service : policyService,
+		modifyTreeFlag : modifyTreeFlag,
+	}
+
+	UtilsPolicy.initBlockly('#toolboxViewPolicies');
+
+	$(document).ready(
+
+			function() {
+				if (workspaceViewPolicies == null) {
+					console.log("workspace is null");
+					workspaceViewPolicies = Blockly.inject(
+							'blocklyViewPolicies', blocklyViewPolicies);
+				}
+
+				configUtilsPolicy.workspace = workspaceViewPolicies.id;
+				$(".treeSpinner").show();
+				var utilsPolicy = new UtilsPolicy(configUtilsPolicy);
+				utilsPolicy.prepareTreePolicy();
+				$(configUtilsPolicy.tree).change(function() {
+					$(".treeSpinner").hide();
+				});
+				
+			});
+</script>
+</head>
+<body>
+	<div class="perc100" style="margin: 5px;">
+		<label style="display: none;" class="error fieldLabel"
+			id="errorCreatePolicyToken">Error in token generation</label>  <label
+			style="display: none;" class="error fieldLabel" id="errorFolderEmpty">Empty
+			Folder</label>
+	</div>
+	<label id="viewPoliciesTitle">View Policies</label>
+	<div class="treeSpinner"></div>
+	<div id="listPolicies" style="text-align: left;" class="perc50">
+		<div id="listTree"></div>
+	</div>
+	<div class="perc50 workspaces"
+		style="height: 49%; border-style: solid; border-width: thin;">
+		<xml id="toolboxViewPolicies" style="display: none;"></xml>
+		<div id="blocklyViewPolicies"></div>
+	</div>
+	<div class="clear"></div>
+</body>
+</html>

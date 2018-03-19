@@ -1,0 +1,305 @@
+<html>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+<script type="text/javascript" src="https://ajax.microsoft.com/ajax/jquery.validate/1.7/jquery.validate.js"></script>
+<script type="text/javascript" src="scripts/jquery.formatDateTime.min.js"></script>
+<script src="https://malsup.github.io/jquery.blockUI.js"></script>
+
+<script src="https://yui.yahooapis.com/2.9.0/build/yahoo/yahoo-min.js"></script>
+
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/core.js"></script> -->
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/md5.js"></script> -->
+<!-- <script	src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/sha1.js"></script> -->
+<!-- <script	src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/sha256.js"></script> -->
+<!-- <script	src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/sha224.js"></script> -->
+<!-- <script	src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/ripemd160.js"></script> -->
+<!-- <script	src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/x64-core.js"></script> -->
+<!-- <script	src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/sha512.js"></script> -->
+<!-- <script	src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/sha384.js"></script> -->
+<!-- <script	src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/aes.js"></script> -->
+<!-- <script	src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/pbkdf2.js"></script> -->
+
+<!-- <script type="text/javascript" src="scripts/crypto/components/core.js"></script>  -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/md5.js"></script>  -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/sha1.js"></script>  -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/sha256.js"></script>  -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/sha224.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/ripemd160.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/x64-core.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/sha512.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/sha384.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/rollups/aes.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/rollups/pbkdf2.js"></script> -->
+<!-- for rsapem -->
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/jsbn.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/jsbn2.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/base64.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/prng4.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/rng.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/ec.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/ec-patch.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/asn1hex-1.1.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/asn1-1.0.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/crypto-1.1.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ecdsa-modified-1.0.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ecparam-1.0.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/base64x-1.1.js"></script>
+
+
+<script type="text/javascript" src="scripts/certificateManager.js"></script>
+<script language="JavaScript" type="text/javascript">
+		
+	$(document).ready(function(){
+
+	    $("#username_error").hide();
+		
+		$("#btn_reset").click(function() {
+			$("#username_error").hide();
+			//$("#btn_reg").attr("disabled", "disabled");
+		});
+		
+		$.validator.addMethod("username_regex", function(value, element) { 
+			var regex = /^([a-zA-Z0-9_.+-])+\@(([a-zA-Z0-9-])+\.)+([a-zA-Z0-9]{2,4})+$/;
+			return this.optional(element) || regex.test(value);   
+		}, "Please choose a valid e-mail address"
+	   	);   
+	
+		$("#form1").validate({
+			ignore: ".ignore",
+			rules: {
+// 				name: {
+// 					required: true,
+// 					minlength: 3,
+// 					maxlength: 64
+// 				},			
+// 				surname: {
+// 					required: true,
+// 					minlength: 3,
+// 					maxlength: 64
+// 				},				
+				username: {
+					required: true,
+					minlength: 3,
+					maxlength: 64,
+					username_regex: true
+				},
+				password1: {
+					required: true,
+					minlength: 5
+				},
+				password2: {
+					required: true,
+					equalTo: '#reg_pass1'
+				}						
+				},
+				messages: {
+// 					name: {
+// 						required: "Please enter a Name",
+// 						minlength: "Your name must consist of at least 3 characters",
+// 						maxlenght: "Your name must consist of max 64 characters"						
+// 					},
+// 					surname: {
+// 						required: "Please enter a Surname",
+// 						minlength: "Your surname must consist of at least 3 characters",
+// 						maxlenght: "Your surname must consist of max 64 characters"					
+// 					},					
+					username: {
+						required: "Please enter a Username",
+						minlength: "Your username must consist of at least 3 characters",
+						maxlenght: "Your username must consist of max 64 characters"
+					},
+					password1: {
+						required: "Please provide a password",
+						minlength: "Your password must be at least 5 characters long"
+					},
+					password2: {
+						required: "Please confirm the password",
+						equalTo: "The two passwords are different"  
+					}		
+				},
+				errorPlacement: function ($error, $element) {
+		            var name = $element.attr("name");
+		            $("#error_" + name).append($error);
+		        }
+		});
+		
+		
+		$("#username").keydown(function() {
+			$("#username_error").hide();
+						
+			$("#reg_pass1").addClass('ignore');
+			$("#reg_pass2").addClass('ignore');
+		});
+		
+		$("#username").blur(function() {
+			var username = $("#username").val();
+			if(username.length >= 3 && $("#form1").valid())
+				checkIfExists(username);
+		});
+		
+		
+		$("#btn_reg").click(function(){
+			if($("#form1").valid()){
+				
+				var encryptedPrivateKey;
+				var json_keyPair;
+			
+				var username = document.getElementById('username').value;
+				var secret = document.getElementById('reg_pass1').value;
+				
+				var deferredCertificate=$.Deferred();
+				generateJsonCertificate(username, secret, deferredCertificate);
+				$.when(deferredCertificate).done(function(json_keyPair){
+					document.getElementById('jsonCert').setAttribute('value',json_keyPair);
+					ajaxRegistrationPost(json_keyPair);
+				}).fail(function(){
+					window.location.href = 'reg_failed';
+				});
+			}
+		});
+		
+		
+	});	
+	
+	function ajaxRegistrationPost(json_key_pair){
+		$.ajax({
+                  type: "POST",
+                  timeout: 10000,
+                  url: '${proxyRegistrationServicePath}', //YOU_URL_TO_WHICH_DATA_SEND
+                  data: {jsonCert: json_key_pair}, //YOUR_DATA_TO_SEND
+                  beforeSend: function(){
+                  		$.blockUI({ message: '<img src="images/ajax-loader.gif" height="50" width="50"/>' });
+                  },
+                  success: function(data, textStatus, xhr) {       
+                  
+					$.unblockUI();
+				
+					if(xhr.status == 200){
+						window.location.href = 'reg_success';
+					}
+                  },
+                  error: function(dataError){
+                  		$.unblockUI();
+						window.location.href = 'reg_failed';
+                  }
+          	});
+	}
+	
+	function checkIfExists(username){
+		$.ajax({
+                  type: "GET",
+                  timeout: 10000,
+                  url: '${proxyCheckRegistrationServicePath}', //YOU_URL_TO_WHICH_DATA_SEND
+                  data: {username: username}, //YOUR_DATA_TO_SEND
+                  beforeSend: function(){
+                  		$.blockUI({ message: '<img src="images/ajax-loader.gif" height="50" width="50"/>' });
+                  },
+                  success: function(data, textStatus, xhr) {       
+                  
+					$.unblockUI();
+				
+					if(xhr.status == 200){
+						//the username exist and certificate field is empty
+						$("#username_error").hide();
+                  		$("#btn_reg").removeAttr("disabled");
+                  		
+                  		$("#reg_pass1").removeClass('ignore');
+                  		$("#reg_pass2").removeClass('ignore');
+					}
+                  },
+                  error: function(dataError)
+                  {
+                  		$.unblockUI();
+                  		
+                  		$("#username_error").show();
+						$("#btn_reg").attr("disabled", "disabled");
+                  }
+          	});
+	}
+	
+	</script>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Registration Page</title>
+
+<link rel="stylesheet" type="text/css" href="css/mainTab.css">
+</head>
+<body>
+	<form id="form1" method="POST" action="${proxyRegistrationServicePath}">
+		<div class="perc100">
+<!-- 			<img src="images/logo.png" height="15%"><br> -->
+			<label style="font-size:large">FTI Video Analysis Service</label>
+			<table cellpadding="5" style="margin: 0 auto;">
+				<thead>
+					<tr>
+						<th colspan="2">Enter Information Here</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td style="text-align:right; padding-right: 60px;">User Name</td>
+						<td>
+							<input type="text" name="username" id="username">
+						</td>
+						<td></td>
+					</tr>
+					<tr>
+						<td colspan="2">
+								<label id="username_error" class="error">Username not available</label>
+								<div id="error_username"></div>
+						</td>
+					</tr>
+					<tr>
+						<td style="text-align:right; padding-right: 75px;">Password</td>
+						<td><input type="password" name="password1" id="reg_pass1" class="ignore"></td>
+						<td></td>
+					</tr>
+					<tr>
+						<td colspan="2">
+							<div id="error_password1"></div>
+						</td>
+					</tr>		
+					<tr>
+						<td style="text-align:right;">Confirm Password</td>
+						<td><input type="password" name="password2" id="reg_pass2" class="ignore">
+							<input type="hidden" name="jsonCert" id="jsonCert">
+						</td>
+						<td></td>
+					</tr>
+					<tr>
+						<td colspan="2">
+							<div id="error_password2"></div>
+						</td>
+					</tr>		
+					<tr>
+						<td style="text-align:right;  padding-right: 20px;"><input type="button" class="button" value="Submit" id="btn_reg"></td>
+						<td><input type="reset" class="button" value="Reset" id="btn_reset"></td>
+					</tr>
+					<tr>
+						<td colspan="2" style="text-align:center">Already registered?? <a href="document">Login Here</a></td>
+					</tr>
+				</tbody>
+			</table>
+			</div>
+<!-- 		<center> -->
+	</form>
+	<div id="footer">
+		<div style="width: 20%; float: left;">
+			<img src="images/logo-psy.png" id="logo_psy" />
+		</div>
+		<div style="width: 40%; float: left;" align="center">
+			<img src="images/logo-cee.png" id="logo_ue" />
+			<p>This project has received funding from FoF-05-2014: Innovative
+				Product-Service design using manufacturing intelligence under grant
+				agreement no 636804.</p>
+		</div>
+		<div style="width: 20%; float: left;" align="center">
+			<img src="images/logo-fti.jpg" id="logo_fti" />
+		</div>
+		<div style="width: 20%; float: left;">
+			<img src="images/logo_fincons.jpg" id="logo_fincons" />
+		</div>
+	</div>
+</body>
+</html>

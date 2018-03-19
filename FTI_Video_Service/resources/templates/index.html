@@ -1,0 +1,417 @@
+<!DOCTYPE HTML SYSTEM>
+<html>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+<script type="text/javascript" src="https://ajax.microsoft.com/ajax/jquery.validate/1.7/jquery.validate.js"></script>
+<script type="text/javascript" src="scripts/jquery.formatDateTime.min.js"></script>
+<script src="https://malsup.github.io/jquery.blockUI.js"></script>
+
+
+<!-- <script src="https://yui.yahooapis.com/2.9.0/build/yahoo/yahoo-min.js"></script> -->
+<script type="text/javascript" src="scripts/certificateManager.js"></script>
+<script type="text/javascript" src="https://kjur.github.io/jsrsasign/jsrsasign-latest-all-min.js"></script>
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/core.js"></script> -->
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/md5.js"></script> -->
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/sha1.js"></script> -->
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/sha256.js"></script> -->
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/sha224.js"></script> -->
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/ripemd160.js"></script> -->
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/x64-core.js"></script> -->
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/sha512.js"></script> -->
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/sha384.js"></script> -->
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/aes.js"></script> -->
+<!-- <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/pbkdf2.js"></script> -->
+
+
+
+<!-- <script type="text/javascript" src="scripts/crypto/components/core.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/cipher-core.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/hmac.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/enc-base64.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/md5.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/sha1.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/sha256.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/sha224.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/ripemd160.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/x64-core.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/sha512.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/components/sha384.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/rollups/aes.js"></script> -->
+<!-- <script type="text/javascript" src="scripts/crypto/rollups/pbkdf2.js"></script> -->
+
+
+
+<!-- for rsapem -->
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/jsbn.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/jsbn2.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/base64.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/prng4.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/rng.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/ec.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ext/ec-patch.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/asn1hex-1.1.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/asn1-1.0.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/crypto-1.1.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ecdsa-modified-1.0.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/ecparam-1.0.js"></script>
+<script language="JavaScript" type="text/javascript" src="scripts/jsrsasign/base64x-1.1.js"></script>
+
+<script language="JavaScript" type="text/javascript">
+	var privateKey;
+	var JSONResponse;
+	var privateKey;
+	var salt;
+	var JSONResponse;
+	var publicKey;
+	var derK;
+	var jsonResponse={};
+	var ECDH={
+			 name: "ECDH",
+			 namedCurve: "P-256"
+			    };
+	var deferredHMAC = $.Deferred();
+	
+	
+	/*
+	* Generate a JWT Token with the user certificate
+	*/
+	function generateTokenCert(jsonStr, userSecret){
+		var oHeader = {alg: 'HS256', typ: 'JWT'};
+		var sHeader = JSON.stringify(oHeader);
+		var jsonObject = JSON.parse(jsonStr);
+		var username = jsonObject['username'];
+		var oPayload = {};
+		var timeNow = KJUR.jws.IntDate.get('now');
+		var timeEnd = timeNow + 60000;
+		oPayload.sub = username;
+		oPayload.iat = timeNow;
+		oPayload.exp = timeEnd;
+		oPayload.request={ 
+						 "data": jsonObject
+						};
+
+		var sPayload = JSON.stringify(oPayload);
+		var jsonToken = KJUR.jws.JWS.sign("HS256", sHeader, sPayload, userSecret);
+		return jsonToken;
+	}
+	
+	/*
+	* Use the Diffie-Hellman algorithm
+	*/
+	function deriveKey(myPrivateKey, myPublicKey){
+		 window.crypto.subtle.importKey("jwk", myPrivateKey, ECDH,  true, ["deriveKey", "deriveBits"])
+		 .then(function(privK){
+			window.crypto.subtle.importKey("jwk", myPublicKey, ECDH, true, [])
+			.then(function(pubK){	
+					var secret= window.crypto.subtle.deriveKey({
+			                "name": "ECDH",
+			                "namedCurve": "P-256",
+			                "public": pubK,
+			            },privK,{
+			            	name: "AES-CBC", 
+			                length: 256
+			            }, true, ["encrypt", "decrypt"]
+					).then(function (data) {
+						window.crypto.subtle.exportKey("raw",data)
+		            		.then(function(keydata){
+		            			var s=BAtohex(new Uint8Array (keydata));
+		            			var hb64u= hextob64u(s);
+		            			derK=hb64u;
+		            			var stringResponse=JSON.stringify(jsonResponse);
+		            			var tokenString = generateTokenCert(stringResponse, hb64u);
+								//dopo aver Fatto HMAC memorizzo userSecret e challengeID
+								sessionStorage.setItem("userSecret",  hb64u);
+								sessionStorage.setItem("challengeID", jsonResponse["challengeID"]);
+								deferredHMAC.resolve(tokenString);
+						}).catch(function(e){
+							console.log("Error export derive key: "+e);
+						 	$("#password_error").show();
+						});
+
+					}).catch(function(e){
+						console.log("Error in deriveKey:"+e);  
+						$("#password_error").show();
+					});
+			}).catch(function(e){
+				console.log("Error in import Public Key :"+e); 	
+				$("#password_error").show();
+			});
+		}) .catch(function(e){
+			console.log("Error in import Private Key :"+e);
+		 	$("#password_error").show();
+		 	});
+	}
+	
+	$(document).ready(function(){
+
+		$("#footer").load("frames/footer.html");
+		
+		if((sessionStorage.getItem('sessionTimeoutError')) == "true"){
+			$("#sessionTimeout").show();
+			sessionStorage.setItem('sessionTimeoutError', false)
+		}
+	  var isChrome = navigator.userAgent.indexOf('Chrome') > -1;
+	  var isFirefox = navigator.userAgent.indexOf('Firefox') > -1;
+	  var isSafari = navigator.userAgent.indexOf("Safari") > -1;
+	  var isOpera = navigator.userAgent.toLowerCase().indexOf("op") > -1;
+	
+		if(!(isFirefox || isChrome || isOpera || isSafari)){
+			$("#browserNotCompatible").show();
+		}
+		//AGGIUNTI PER BAYPASSARE LOGIN
+		//$("#username_error").hide();
+		//$("#auth_error").hide();
+		//$("#password_error").hide();
+		//AGGIUNTI PER BAYPASSARE LOGIN
+		
+		if(${authentication_failed}){
+			$("#auth_error").show();
+		}
+		else{
+			$("#auth_error").hide();
+		}
+		
+		$("#btn_login").attr("disabled", "disabled");
+		$("#secret").attr("disabled", "disabled");
+		$("#username_error").hide();
+		$("#password_error").hide();
+		
+		$("#btn_reset").click(function() {
+			$("#username_error").hide();
+			$("#auth_error").hide();
+			$("#password_error").hide();
+			$("#secret").attr("disabled", "disabled");
+			$("#btn_login").attr("disabled", "disabled");
+		});
+		
+		$("#identifier").keydown(function() {
+			$("#username_error").hide();
+			$("#secret").attr("disabled", "disabled");
+		});
+
+		$("#secret").keydown(function() {
+			$("password_error").hide();
+			$("#password_error").hide();
+		});		
+		
+		$.validator.addMethod("username_regex", function(value, element) {   
+				var regex = /^([a-zA-Z0-9_.+-])+\@(([a-zA-Z0-9-])+\.)+([a-zA-Z0-9]{2,4})+$/;
+				return this.optional(element) || regex.test(value);   
+			}, "Please choise a valid e-mail address"
+	   	); 
+		
+		
+		$("#loginForm").validate({
+			rules: {
+				identifier: {
+					required: true,
+					minlength: 3,
+					maxlength: 64,
+					username_regex: true
+				},
+				secret: {
+					required: true,
+					minlength: 5
+				}							
+			},
+			messages: {
+				identifier: {
+					required: "Please enter a Username",
+					minlength: "Your username must consist of at least 2 characters",
+					maxlenght: "Your username must consist of max 64 characters"
+				},
+				secret: {
+					required: "Please provide a password",
+					minlength: "Your password must be at least 5 characters long"
+				}	
+			},
+			errorPlacement: function ($error, $element) {
+		            var name = $element.attr("name");
+		            $("#error_" + name).append($error);
+		        }
+		});
+		
+		/*
+		* After form validation, decrypt the private key. If successfull decryption, 
+		* registrate a new certificate in LDAP for the user logged-in.
+		*/ 
+		$("#btn_login").click(function( event ) {	
+			if($("#loginForm").valid()){
+		
+ 				var psw = $("#secret").val();
+ 				var username =$("#identifier").val();
+ 				sessionStorage.setItem('user', username);
+				var deferredDecrypt = $.Deferred();
+				decryptPrivateKey(psw, privateKey, deferredDecrypt, salt);
+				$.when(deferredDecrypt).done(function(decrypted_psw){
+
+					decrypted_psw = BAtohex(new Uint8Array(decrypted_psw));
+
+					decrypted_psw = hextob64u(decrypted_psw);
+					
+					if (decrypted_psw != ''){
+	 					$("#password_error").hide();
+						
+	 					var utf8privateKey = b64utoutf8(decrypted_psw);
+	 					var privateKeyJson= JSON.parse(utf8privateKey);
+
+						var deferredCert = $.Deferred();
+						generateJsonCertificate(username, psw, deferredCert);
+						
+						$.when(deferredCert).done(function(cert){
+							$.extend( true, jsonResponse, JSON.parse(cert) );//unisco le info di cert in jsonResponse
+							deriveKey(privateKeyJson, publicKey);
+							$.when(deferredHMAC).done(function (jsonToken) {
+						    	$("#JSONResponseToken").val(jsonToken);
+						 		$("#secret").attr("disabled", "disabled");
+						    	$("#loginForm").submit();
+							});
+						});
+						
+					}
+		 			else{
+		 			  	$("#password_error").show();
+		 				event.preventDefault();
+					}
+				}).fail(function(){
+					$("#password_error").show();
+				});
+ 				
+			}
+		});
+		
+		/*
+		* Verify that the username input is correctly registered into LDAP.
+		* If correctly registered, password input is shown.
+		*/
+		$("#identifier").blur(function() {
+		
+			$("#auth_error").hide();
+			$("#password_error").hide();
+		
+			var username =$("#identifier").val();
+	      	if($("#identifier").val().length >= 3 && $("#loginForm").valid()){
+	   
+ 				$.ajax({
+ 	                   type: "GET",
+ 	                   timeout: 10000,
+ 	                   url: '${proxyGetUserDataServicePath}', //YOU_URL_TO_WHICH_DATA_SEND
+ 	                   data: {username: username}, //YOUR_DATA_TO_SEND
+ 	                   beforeSend: function(){
+ 	                   		$.blockUI({ message: '<img src="images/searchUser.gif"/>' });
+ 	                   },
+ 	                   success: function(data)
+ 	                   {
+ 							$.unblockUI();
+ 							$("#username_error").hide();
+ 							var json = data;
+ 							var jsonLoginUserData = (json['loginUserData']);
+ 							var jsonUserCertificate = (jsonLoginUserData['userCertificate']);
+ 							var jsonUserData = (jsonLoginUserData['userData']);
+ 							var replaceString = jsonUserCertificate.replace(/'/g, "\"");
+ 							
+ 							var jsonUC = JSON.parse(replaceString);
+ 							privateKey = (jsonUC['privateKey']);
+							publicKey=  (jsonUserData['actkSrvPublicKey']);
+							salt = (jsonUC['salt']);
+ 							if(privateKey != null && privateKey != ""){
+ 								jsonResponse['challengeID']=jsonUserData['challengeID'];
+ 								jsonResponse['timestamp']=jsonLoginUserData['timestamp'];
+ 								sessionStorage.setItem("validityTime", jsonUserData['validityTime']);
+ 								$("#secret").removeAttr("disabled");
+ 								$("#secret").focus();
+								$("#btn_login").removeAttr("disabled");
+ 							}
+ 							else{
+ 								$("#username_error").show();
+ 							}		
+ 	                   },
+ 	                   error: function(data)
+ 	                   {
+ 	                   		$("#username_error").show();
+ 	                   		$("#secret").attr("disabled", "disabled");
+ 	                   		$("#btn_login").attr("disabled", "disabled");
+ 	                   		$.unblockUI();
+ 	                   }
+ 	           });
+           }
+		});
+	});
+	</script>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="shortcut icon" type="image/png" href="images/favicon.ico" />
+<title>Login Page</title>
+
+<link rel="stylesheet" type="text/css" href="css/mainTab.css">
+</head>
+<body>
+	<!-- 	<form id="loginForm" action="?login=true" method="POST"> -->
+	<form id="loginForm" action="document" method="POST">
+		<div class="perc100">
+			<!-- 			<img src="images/logo.png" height="15%"><br /> -->
+			<label id="browserNotCompatible" class="error" style="display: none">Not
+				compatible with your browser</label><label id="sessionTimeout" class="error" style="display: none">Session Timeout! Please login again.</label>
+				<br /> <label style="font-size: large">FTI
+				Video Analysis Service</label>
+				
+			
+
+			<table cellpadding="3" style="margin: 0 auto;">
+				<thead>
+					<tr>
+						<th colspan="2">Login Here</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td style="text-align: right; padding-right: 45px;">Username</td>
+						<td><input type="text" name="identifier" id="identifier"
+							value="" /></td>
+					</tr>
+					<tr>
+						<td colspan="2"><label id="username_error" class="error">Username
+								not Found</label>
+							<div id="error_identifier"></div></td>
+					</tr>
+					<tr>
+						<td style="text-align: right; padding-right: 52px;">Password</td>
+						<td><input type="password" id="secret" name="secret"
+							autocomplete="off" value="" /></td>
+						<td></td>
+					</tr>
+					<tr>
+						<td colspan="2"><label id="password_error" class="error">Wrong password</label>
+							<div id="error_secret"></div> 
+							<input type="hidden" name="JSONResponseToken" id="JSONResponseToken" /> 
+						</td>
+					</tr>
+					<tr>
+						<td></td>
+						<td colspan="2"><label id="auth_error" class="error">Login
+								failed. Try Again</label></td>
+						<td></td>
+					</tr>
+					<tr>
+						<td style="text-align: right;"><input id="btn_login"
+							name="btn_login" type="button" class="button" value="Login" /></td>
+						<td><input type="reset" id="btn_reset" class="button"
+							value="Reset" /></td>
+						<td></td>
+					</tr>
+					<tr>
+						<td colspan="2" style="text-align: center;">Yet Not
+							Registered?? <a href="registration">Register Here</a>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+
+		</div>
+	</form>
+	
+	<div id="footer">
+	</div>
+</body>
+</html>

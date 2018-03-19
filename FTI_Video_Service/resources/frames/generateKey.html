@@ -1,0 +1,65 @@
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="../css/mainTab.css">
+<script>
+	$(document).ready(function(){
+		$("#keygenButton").click(function() {	
+			$("#errorKeyGen").hide();
+			$("#errorKeyGenToken").hide();
+	        $.blockUI({ message: '<img src="images/ajax-loader.gif" height="50" width="50"/>' });
+			var tokenGetKey=sessionStorage.getItem("generateKeyToken");
+			var username = sessionStorage.getItem('user');
+			var keygenService = sessionStorage.getItem('keygenServ');
+			if(tokenGetKey==null || !validateTimeToken(tokenGetKey)){
+				var sJWT=generateRequestToken("GET", keygenService, "keygen", username);
+				tokenGetKey=requestToken(null, sJWT, null);
+			}
+			var deferedRequest= $.Deferred();
+			if(tokenGetKey==null){
+				$("#errorKeyGenToken").show();
+				$.unblockUI();
+				return;
+			}
+			executeService(tokenGetKey, deferedRequest, null);
+			$.when(deferedRequest).done(function (response) {
+				if(response.code==200){
+					$("#personalDecriptionString").val(response.private);
+					sessionStorage.setItem("personalKey", response.private);
+					sessionStorage.setItem("publicKey", response.public);
+					$.unblockUI();
+				}else{
+					$("#errorKeyGen").show();
+					$.unblockUI();
+	// 				setTimeout(function() { $("#errorKeyGen").hide();}, 5000);
+					if(response.code==401){
+						logoutUser();
+					}
+				}
+			});
+		});
+	});
+</script>
+</head>
+<body>
+<div align="center">
+	<label id="errorKeyGenToken" class="error" style="display: none;">Error
+		in generation token</label>
+	<label id="errorKeyGen" class="error" style="display: none;">Error
+		in generetor keys</label>
+</div>
+<div>
+	<div class="perc100">
+		<label id="personalKeyLbl">Personal Decryption Key</label>
+		<textArea id="personalDecriptionString"
+			name="personalDecriptionKey" style="width: 100%; height: 50%"
+			rows="7" readonly="readonly"></textArea>
+	</div>
+	<div class="clear"></div>
+	<div align="center">
+		<input type="button" class="button" id="keygenButton"
+			value="Generate Key" />
+	</div>
+
+</div>
+</body>
+</html>

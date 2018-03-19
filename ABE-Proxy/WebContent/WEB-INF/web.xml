@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xml>
+<web-app>
+ 
+  <servlet>
+     <servlet-name>generate_shared_secret</servlet-name>
+     <servlet-class>servlets.Generate_Shared_Secret</servlet-class>
+  </servlet>
+  <servlet>
+     <servlet-name>get_shared_secret</servlet-name>
+     <servlet-class>servlets.Get_Shared_Secret</servlet-class>
+  </servlet>
+  <servlet>
+     <servlet-name>cpabe_information</servlet-name>
+     <servlet-class>servlets.Cpabe_Information</servlet-class>
+  </servlet>
+       
+     <context-param>
+        <param-name>proxy_id</param-name>
+        <param-value>ABE_PROXY</param-value>
+     </context-param>
+     
+     <context-param>
+        <param-name>expiration_time</param-name>
+        <param-value>5000</param-value>
+     </context-param>
+     
+      <context-param>
+        <param-name>89.207.106.75:2480|username</param-name>
+        <param-value>cp_abe_user</param-value>
+     </context-param>
+     <context-param>
+        <param-name>89.207.106.75:2480|password</param-name>
+        <param-value>cp_abe_user</param-value>
+     </context-param>
+ 
+  <servlet-mapping>
+     <servlet-name>generate_shared_secret</servlet-name>
+     <url-pattern>/generate_shared_secret</url-pattern>
+  </servlet-mapping>
+   
+  <servlet-mapping>
+     <servlet-name>get_shared_secret</servlet-name>
+     <url-pattern>/get_shared_secret</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+     <servlet-name>cpabe_information</servlet-name>
+     <url-pattern>/cpabe_information</url-pattern>
+  </servlet-mapping>
+
+ </web-app>

@@ -1,0 +1,553 @@
+<html>
+<head>
+<script>
+var username = sessionStorage.getItem('user');
+var policyService = sessionStorage.getItem('policyServ');
+var videoService = sessionStorage.getItem('videoServ');
+
+//	BLOCKLY SETTINGS {
+var workspaceVideo = null;
+var blocklyUpdateVideo = {};
+$.extend(blocklyUpdateVideo, Util.blocklyDefaultConfig);
+blocklyUpdateVideo.toolbox = document.getElementById('toolboxVideo');
+blocklyUpdateVideo.readOnly = true;
+//	}
+
+UtilsPolicy.initBlockly('#toolboxVideo');
+
+
+var abeProxyClient= new AbeProxyInterface(Util.abeConfig);
+var fileProtector= new FileProtector(abeProxyClient);
+var modifyTreeFlag = false;
+
+var configUtilsPolicy = {
+		treeContainer:"#listPoliciesToChoose",
+		tree:"#listTreeToChoose",
+		workspace: null,
+		viewer:"#policyStringChooser",
+		username: username,
+		service: policyService,
+		modifyTreeFlag: modifyTreeFlag,
+};
+function pad2(n) {  // always returns a string
+    return (n < 10 ? '0' : '') + n;
+}
+
+function getDateinYYYYMMDDHHMMSS(){
+	var now= new Date();
+return now.getFullYear() +
+       pad2(now.getMonth() + 1) + 
+       pad2(now.getDate()) +
+       pad2(now.getHours()) +
+       pad2(now.getMinutes()) +
+       pad2(now.getSeconds());
+}
+
+$(document).ready(function(){
+	
+	if(Util.servicesList.length>0){
+		$("#servicesList").show();
+		for (var service of Util.servicesList) {
+			$("#servicesList").append("	<input name='AnalysisService-"+service+"' type='checkbox' value='"+service+"' >" + service);	
+		}
+	}
+	if(workspaceVideo == null){
+		console.log("workspace is null");
+	    workspaceVideo =  Blockly.inject('blocklyVideo', blocklyUpdateVideo);
+	}
+	
+	configUtilsPolicy.workspace = workspaceVideo.id;
+	var utilsPolicyVideo = new UtilsPolicy(configUtilsPolicy);
+	
+	var stringPolicy = "";
+	var tokenGetPolicy = sessionStorage.getItem("defaultPolicyToken");
+	if(tokenGetPolicy == null || !validateTimeToken(tokenGetPolicy)){
+		sJWT = generateRequestToken("GET", policyService, "_", username);
+		tokenGetPolicy = requestToken("defaultPolicy", sJWT, null);
+	}
+	if(tokenGetPolicy == null || tokenGetPolicy == ""){
+			$("#errorDefaultPolicy").show();
+			$('#encryptFileButton').attr("disabled", "disabled");
+	} else {
+		var defPolicyDeferred = $.Deferred();
+		executeService(tokenGetPolicy, defPolicyDeferred, null);
+		$.when(defPolicyDeferred).done(function(response){
+			if(response.code == 200){
+				$("#errorDefaultPolicy").hide();
+				workspaceVideo.clear();
+				var xml = Blockly.Xml.textToDom(response.xmlPolicy);
+				Blockly.Xml.domToWorkspace(xml, workspaceVideo);
+				$("#policyStringChooser").val(response.policy);
+			}else{
+				$("#errorDefaultPolicy").show();
+				$('#encryptFileButton').attr("disabled", "disabled");
+			}
+		}).fail(function(response){
+			$("#errorDefaultPolicy").show();
+			$('#encryptFileButton').attr("disabled", "disabled");
+		});
+	}
+	
+	document.getElementById("uploadBtn").onchange = function () {
+ 		document.getElementById("uploadFile").value = this.files[0].name;
+	};
+	document.getElementById("uploadJsonBtn").onchange = function () {
+ 		document.getElementById("uploadFileJson").value = this.files[0].name;
+ 		$("#errorFilterJson").hide();
+ 		$("#uploadFileJson").removeClass("error");
+	};
+	
+	$("#failVideo").hide();
+	$("#errorFilter").hide();
+	$("#errorUploadVideoToken").hide();
+	var sJWT = generateRequestToken("GET", policyService, "", username);
+	var tokenRequest = requestToken(null, sJWT, null);
+	if(tokenRequest != null && tokenRequest != ""){
+		$(".treeSpinner").show();
+		utilsPolicyVideo.prepareTreePolicy();
+		$("#listTreeToChoose").change(function() {
+			$(".treeSpinner").hide();
+		});
+	}
+
+//	//WITH ABE-PROXY ENCRYPTION PUBLIC_KEY IS NOT NEEDED BECAUSE IS INCLUDED IN ABE-PROXY
+//		var publicKey= sessionStorage.getItem("publicKey");
+//		if((publicKey==null || publicKey=="")){
+//			$('#errorKey').show();
+//			$("#encryptFileButton").prop('disabled', true);
+//		}else{
+//			$('#publicKeyEnc').val(publicKey);
+//			$("#encryptFileButton").prop('disabled', false);
+//			$('#errorKey').hide();	
+//		}
+
+		var tokenGetVideos= sessionStorage.getItem("downloadVideoToken");
+		if(tokenGetVideos==null || !validateTimeToken(tokenGetVideos)){
+			sJWT=generateRequestToken("GET", videoService, "", username);	
+			tokenGetVideos=requestToken(null, sJWT, null);
+		}
+		$('#foldersVideos').empty();
+		var deferedRequest= $.Deferred();
+// 		var tokenForOrganization=tokenGetVideos;
+		if(tokenGetVideos!=null){
+// 		if(tokenGetVideos==null){
+// 			$("#errorUploadVideoToken").show();
+// 			return;
+			var payloadObj = KJUR.jws.JWS.readSafeJSONString(b64utoutf8(tokenGetVideos.split(".")[1]));
+			if(payloadObj['action'].url==""){
+				console.log("SuperUser");
+				console.log("execute getVideo");
+				executeService(tokenGetVideos, deferedRequest, null);
+				$.when(deferedRequest).done(function (response) {
+					var listDir=response['listVideo'];
+					$.each(listDir, function (i, item) {
+						if(item.hasOwnProperty("URLDir")){
+					    	$('#foldersVideos').append($('<option>', { 
+						   		value: item.URLDir,
+						        text : item.nameVideo
+					  		}));
+						}
+					});
+				});
+			}	
+		}
+		
+		var tokenPostVideos=sessionStorage.getItem("uploadVideoToken");
+		if(tokenPostVideos==null || !validateTimeToken(tokenPostVideos)){
+		 	var sJWT=generateRequestToken("POST", videoService, "", username);	
+			tokenPostVideos=requestToken("uploadVideoToken", sJWT, null);
+		}
+		if(!($('#foldersVideos option').size()>0)){
+			var payloadObj = KJUR.jws.JWS.readSafeJSONString(b64utoutf8(tokenPostVideos.split(".")[1]));
+			$('#foldersVideos').append($('<option>', { 
+				value: payloadObj['action']['url'],
+				text : payloadObj['action']['url']
+			}));
+		}
+		
+// 	});
+	
+	//BUTTONS 
+	$('#encryptFileButton').click(function() {	
+    	//$.blockUI({ message: '<img src="images/ajax-loader.gif" height="50" width="50"/>' });
+		$.blockUI({ message: '<div id="conteinerProgressBar"><div id="progressBar"></div> <div id="contentProgressBar">Uploading 0%</div></div>' });
+		
+    	$("#successVideo").hide();
+		$("#failVideo").hide();
+		$("#errorFilter").hide();
+		var folder= $("#foldersVideos option:selected").text();
+		var nomeFile=  $("#uploadFile").val();
+		var policyString =$("#policyStringChooser").val();
+		if(!$("#uploadForm").valid()){
+			$("#errorFilter").show();
+			$.unblockUI();
+			return;
+		}
+		
+		$("#uploadFile").removeClass("error");
+		var fileList = $("#uploadBtn").prop("files");
+		var fileJsonList = $("#uploadJsonBtn").prop("files");
+		var defReadFile=$.Deferred();
+		getJsonFromFile(fileJsonList[0], defReadFile);
+		$.when(defReadFile).done(function(jsonFile){
+			if(!checkJsonFile(jsonFile, fileList)){
+				$("#errorFilterJson").show();
+				$("#uploadFileJson").addClass("error");
+				$("#errorFilter").show();
+				$.unblockUI();
+				return;
+			}
+			console.log(jsonFile);
+			var sJWT=generateRequestToken("POST", videoService, folder+"/"+nomeFile, username);
+			var tokenPostVideo=requestToken(null, sJWT, null);
+	
+			//USED  ABE_PROXY to ENCRYPT
+			var excludedFields=["upfile", "upfileJson", "policyText"];
+			var deferedGenerateKey =  $.Deferred();
+				
+// 			var deferredEncryption =  $.Deferred();
+			var jsonMetadataArray=getMetadataFromJsonFile(jsonFile, fileList[0].name);
+			
+// 			if(fileList[0].size>=20000000)
+// 				deferredEncryption.reject("This file is too big, please upload a file max size 20MB ")
+// 			else
+// 				fileProtector.encryptFile(fileList[0], policyString, deferredEncryption);
+			fileProtector.generateKey(policyString, deferedGenerateKey);
+			var generalArr=new Uint8Array();
+		 	var random = new Uint8Array(8);
+	    	window.crypto.getRandomValues(random);
+			var hexRandom=BAtohex(random);
+			var secureFileName=hextob64u(hexRandom);
+			var startEncTime=getDateinYYYYMMDDHHMMSS();
+			var defaultSliceEncryptedSize=0;
+			$.when(deferedGenerateKey).done(function (generateKey) {
+				console.log("the key was generated");
+				var reader = new FileReader();
+				reader.onload = function(){
+// 					console.log((100*currentSlice/numSlice)+"%");
+					var perc=100*(currentSlice+1)/numSlice-1;
+					perc=(perc<0)?0:perc;
+					$("#progressBar").css('width',perc+'%');
+					$("#contentProgressBar").text("Uploading " + perc.toFixed(2)+'%');
+
+					var current=new Uint8Array(reader.result);
+					var temp = new Uint8Array(generalArr.length + current.length);
+					temp.set(generalArr);
+					temp.set(current, generalArr.length);
+					generalArr = temp;
+				
+					var deferredEncryption =  $.Deferred();
+					fileProtector.encryptSliceFile(reader.result, generateKey, deferredEncryption);
+					$.when(deferredEncryption).done(function (data) {
+						
+// 						console.log("encryption Completated"+ currentSlice);
+												
+						 data.name_file=file.name;
+						 data.name_enc_file=secureFileName+"_"+file.name;
+		    			 data.type_file=file.type;
+		    			 data.encryptor=username;
+						 data.currentSlice=currentSlice;
+						 data.totalSlice=numSlice;
+						 data.sizeSlice=sizeSlice;
+						 data.sizeFile=file.size;						 
+						 data.metadata=jsonMetadataArray;
+		 				 data.name=startEncTime+"_"+data.name_file;
+		 	
+//		 				 // Add field in json
+		 				 var input = {file:data};
+		 				 var arrayField=$("#uploadForm").serializeArray();
+		 				 $.each(arrayField, function(i, field){
+		 					 if(!excludedFields.includes(field.name)){
+		 					 	input[field.name] = field.value;
+		 					 }
+		 					});
+		 			  var deferedRequestPostVideo=$.Deferred();
+		 				 
+		 				sJWT=generateRequestToken("POST", videoService, folder+"/"+nomeFile, username);
+		 				tokenPostVideo=requestToken(null, sJWT, null);
+		 				
+		 				executeService(tokenPostVideo, deferedRequestPostVideo, JSON.stringify(input));
+		 				$.when(deferedRequestPostVideo).done(function (response) {
+		 					readNextSlice(currentSlice+1, file);
+		 				}).fail(function (error){
+		 					console.error(response);
+							$('#errorEncryption').show();
+							$("#failVideo").show();
+							$.unblockUI();
+			        		setTimeout(function() { $("#failVideo").hide();}, 5000);	
+		 				}); 
+					}).fail(function (error){
+	 					$.unblockUI();
+	 					alert(error);
+	 					$('#errorEncryption').show();
+	 					console.error(error);
+	 				}); 
+			      
+			    };
+				var sizeSlice= 1024*1024-8;
+				var currentSlice=0;
+				var numSlice= Math.floor(file.size / sizeSlice);
+				numSlice= (file.size%sizeSlice==0) ? numSlice : numSlice+1;
+// 				console.log("numSlice:",numSlice);
+				function readNextSlice(_currentSlice, _file){
+					console.log(_currentSlice);
+					currentSlice=_currentSlice;
+					var startSlice=_currentSlice*sizeSlice;
+					if(startSlice>file.size || currentSlice>numSlice){
+						console.log("Encryption File End");
+						$("#progressBar").css('width','100%');
+						$("#contentProgressBar").text('Uploaded 100%');
+						$("#successVideo").show();
+						setTimeout(function() { $("#successVideo").hide();}, 6000);
+						$.unblockUI();
+						return;
+					}
+					var endSlice=((startSlice+sizeSlice)>=_file.size) ? _file.size : startSlice+sizeSlice;
+// 					console.log("%c N°: "+currentSlice+" da "+ startSlice +" a "+ endSlice , "color:purple");
+					var blob = _file.slice(startSlice, endSlice);   
+					reader.readAsArrayBuffer(blob);
+				}
+				debugger;
+				readNextSlice(currentSlice, file);
+
+		
+// 				for(i=0; i<=numSlice+1;i++){
+// 					currentSlice=i;
+// 					console.log("currentSlice:",currentSlice);
+// 					var startSlice=i*sizeSlice;
+// 					var endSlice=((startSlice+sizeSlice-1)<file.size) ? file.size : startSlice+sizeSlice-1;
+// 					var blob = file.slice(startSlice, endSlice);   
+// 					reader.readAsArrayBuffer(blob);
+// 				}
+		    }).fail(function (error){
+					$.unblockUI();
+ 					alert(error);
+ 					$('#errorEncryption').show();
+ 					console.error(error);
+ 			}); 
+// 			$.when(deferredEncryption).done(function (data) {
+// 				 data.metadata=jsonMetadataArray;
+// 				 data.name=getDateinYYYYMMDDHHMMSS()+"_"+data.name_file;
+// 				 // Add field in json
+// 				 var input = {file:data};
+// 				 var arrayField=$("#uploadForm").serializeArray();
+// 				 $.each(arrayField, function(i, field){
+// 					 if(!excludedFields.includes(field.name)){
+// 					 	input[field.name] = field.value;
+// 					 }
+// 					});
+// 				 var deferedRequestPostVideo=$.Deferred();
+	
+// 				 executeService(tokenPostVideo, deferedRequestPostVideo, JSON.stringify(input));
+// 					$.when(deferedRequestPostVideo).done(function (response) {
+// 						console.log(response.code);
+// 						if(response.code==201){
+// 	//							 alert("succ 201");
+// 							$("#successVideo").show();
+// 							$.unblockUI();
+// 	//							setTimeout(function() { $("#successPolicy").hide(); $( "#cancelPolicy" ).click();}, 6000);
+// 						}else{
+// 	//							 alert("fail 201");
+// 	//								console.log(response);
+// 							$('#errorEncryption').show();
+// 							$("#failVideo").show();
+// 							$.unblockUI();
+// 	//							setTimeout(function() { $("#failPolicy").hide();}, 5000);	
+// 						}
+// 						});
+// 			 }).fail(function (error){
+// 					$.unblockUI();
+// 					alert(error);
+// 					$('#errorEncryption').show();
+// 					console.error(error);
+// 			}); 
+
+		});
+
+		//USED  VIDEO_PROXY to ENCRYPT
+//			var payloadObj = KJUR.jws.JWS.readSafeJSONString(b64utoutf8(tokenPostVideo.split(".")[1]));
+//			var deferredDecrypt= $.Deferred();
+//			decrypt(sessionStorage.getItem("userSecret"), payloadObj['secureBrow'], deferredDecrypt);
+//			$.when(deferredDecrypt).done(function (secureCode) {
+//				if(secureCode!=null && secureCode!=""){
+//					var oNewPayload = {};
+//					var tNewTokenEnd = KJUR.jws.IntDate.get('now') + 3600;
+//					oNewPayload.sub = username;
+//					oNewPayload.exp = tNewTokenEnd;
+//					oNewPayload.token=tokenPostVideo;
+//					var sNewPayload = JSON.stringify(oNewPayload)
+//					var newsJWT=KJUR.jws.JWS.sign("HS256", sHeader, sNewPayload, secureCode);
+//					var actionAutorizhed=payloadObj['action'];
+//					if(JSON.stringify(actionAutorizhed) == JSON.stringify({})){
+//						alert("unAuthorized");
+//						$.unblockUI();
+//						$("#home").click(); 
+//					}else{
+//						var fd = new FormData(	document.getElementById("uploadForm"));
+//						$.ajax({
+//						  url: "encryptProxy",
+//						  type: "POST",
+//						  processData: false,
+//						  contentType: false,
+//						  data: fd,
+//						  beforeSend: function(xhr){xhr.setRequestHeader('Authorization', newsJWT);},
+//						  success: function(data) {
+//								 $.unblockUI();
+//					        	 if(data.code==201){
+//					        			$("#successVideo").show();
+//						        	}
+//					        	 else{
+//				        			$("#failVideo").show();
+//				        		 }
+//								},
+//				        error: function(xhr, error, message) {
+//				        	$.unblockUI();
+//				        	if(xhr.status==401){
+//								logoutUser();
+//				        	}else{
+//				        		$("#failVideo").show();
+//					        }
+//						}
+//						});	
+				
+//					}
+//				}
+//			});
+	});
+	
+	$("#uploadForm").validate({
+		ignore: ':hidden:not("#policyStringChooser")',
+		rules: {
+			upfile: {
+				required: true,
+			},
+			upfileJson: {
+				required: true,
+			},
+			policyText:{
+				required: true,
+				valueNotEmpty: true,
+			},
+			folderChoose:{
+				valueNotEmpty: true,
+			},
+		},
+		errorClass: "error",
+		validClass: "",
+		errorPlacement: function ($error, $element) {
+			if($element.attr("id")==$("#uploadBtn").attr("id")){
+			  $("#uploadFile").addClass("error");
+			}
+			if($element.attr("id")==$("#uploadJsonBtn").attr("id")){
+				  $("#uploadFileJson").addClass("error");
+				}
+			if($element.attr("id")==$("#policyStringChooser").attr("id")){
+				  $("#blocklyVideo").addClass("error");
+				}
+        }
+	});
+	
+	$.validator.addMethod("valueNotEmpty", function(value){
+		  return value!="";
+		 }, "Value must not be empty.");
+});
+</script>
+</head>
+<form method="POST" enctype="multipart/form-data" action="encryptProxy"
+	id="uploadForm" name="uploadForm">
+	<div class="perc100">
+		<label style="display: none;" class="success fieldLabel" id="successVideo">Saved Correctly</label> 
+		<label style="display: none;" class="error fieldLabel" id="failVideo">Saving Failed</label>
+		<label id="errorFilter" class="error fieldLabel" style="display: none;">Error in red field</label>
+		<label id="errorFilterJson" class="error fieldLabel" style="display: none;">Json file uploaded is invalid</label> 
+		<label id="errorUploadVideoToken" class="error fieldLabel"	style="display: none;">Error in token generation</label> 
+<!-- 		<label id="errorKey" class="error fieldLabel" style="display: none;">Error in Encryption Key, you can't encrypt this file</label>  -->
+		<label id="errorDefaultPolicy" class="error fieldLabel" style="display: none;">Operation authorized for the role but
+			you haven't got a policy. Please contact the administrator!</label>
+	</div>
+	<br>
+	<div>
+		<div class="perc100">
+			<div>
+				<div class="perc20">
+					<label class="fieldLabel" id="selectFileLbl">Select File to
+						be uploaded</label>
+				</div>
+				<div class="perc40">
+					<input id="uploadFile" class="inputFile"
+						placeholder="Select File to be uploaded" disabled="disabled" />
+					<div class="fileUpload button">
+						<span id="uploadLbl">Upload</span> <input id="uploadBtn"
+							name="upfile" type="file" class="upload" />
+					</div>
+				</div>
+				<div class="perc40">
+
+					<div>
+						<label class="fieldLabel" id="folderDestinationLbl">Folder
+							Destination</label> <select id="foldersVideos" name="folderChoose"></select><br />
+					</div>
+				</div>
+				<div class="clear"></div>
+			</div>
+			<div>
+				<div class="perc20">
+					<label class="fieldLabel" id="selectFileJsonLbl">Select
+						File Json to be uploaded</label>
+				</div>
+				<div class="perc40">
+					<input id="uploadFileJson" class="inputFile"
+						placeholder="Select File to be uploaded" disabled="disabled" />
+					<div class="fileUpload button">
+						<span id="uploadJsonLbl">Upload</span> <input id="uploadJsonBtn"
+							name="upfileJson" type="file" accept=".json" class="upload" />
+					</div>
+				</div>
+				<div class="clear"></div>
+			</div>
+		</div>
+
+
+<!-- 		<div id="servicesList" class="perc100" -->
+<!-- 			style="display: none; text-align: left;"> -->
+<!-- 			<label id="analysisServicesLbl" class="fieldLabel">Choose -->
+<!-- 				Analysis Services </label> -->
+<!-- 		</div> -->
+
+		<div class="perc100">
+			<div id="listPolicyDiv" class="perc50" style="display: none;">
+				<div class="selectPolicy perc100">
+					<label id="selectPolicyLbl">Select Policy File </label>
+					<div class="treeSpinner"></div>
+				</div>
+
+				<div id="listPoliciesToChoose" class="perc100">
+					<div id="listTreeToChoose"></div>
+				</div>
+			</div>
+			<div id="policySelectedDiv" class="perc100">
+				<div class="currentPolicy perc100">
+					<label id="currentPolicyLbl">Policy selected</label>
+				</div>
+				<!-- 				<div class="perc50"> -->
+				<br> <br> <br> <input type="hidden"
+					id="policyStringChooser" name="policyText"></input>
+				<div class="workspaces perc100"
+					style="height: 49%; border-style: solid; border-width: thin;">
+					<xml id="toolboxVideo" style="display: none;"></xml>
+					<div id="blocklyVideo"></div>
+				</div>
+				<!--	 		not needed with Abe proxy -->
+				<!-- 			<input type="hidden" id="publicKeyEnc" name="publicKey"></input> -->
+				<!-- 				</div> -->
+			</div>
+			<br> <br>
+			<div id="encryptButtonDiv" class="perc100">
+				<input type="button" class="button" id="encryptFileButton"
+					value="Start Encryption" style="bottom: 0; width: auto;" />
+			</div>
+		</div>
+	</div>
+</form>
+</body>
+</html>

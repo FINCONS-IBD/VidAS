@@ -1,0 +1,356 @@
+<html>
+<head>
+<!-- 	<link rel="stylesheet" type="text/css" href="../css/mainTab.css"> -->
+<script>
+		var workspace = null;
+		var username = sessionStorage.getItem('user');
+		var policyService = sessionStorage.getItem('policyServ');
+		
+		var modifyTreeFlag = true;
+		var configUtilsPolicy = {
+				treeContainer: "#folderContainer",
+				tree: "#folderList",
+				treeSpinner: ".treeSpinner",
+				workspace: null,
+				viewer: "",
+				username: username,
+				service: policyService,
+				modifyTreeFlag: modifyTreeFlag,
+				namePolicyText: "#fileName",
+				confirmButton: "#confirmPolicy"
+		}
+		var blocklyConfig = {};
+		$.extend(blocklyConfig, Util.blocklyDefaultConfig);
+		
+		blocklyConfig.toolbox = document.getElementById('toolbox');
+		
+		UtilsPolicy.initBlockly('#toolbox');
+		
+		$(document).ready(function(){
+			if (workspace==null){
+				  console.log("workspace is null");
+			      workspace =  Blockly.inject('blockly', blocklyConfig);
+			      console.log("create blockly");
+			}
+			
+			configUtilsPolicy.workspace =  workspace.id;
+			var utilsPolicyCreate = new UtilsPolicy(configUtilsPolicy);
+			$(".treeSpinner").show();	
+
+			$(configUtilsPolicy.tree).change(function() {
+				$(".treeSpinner").hide();
+			});
+
+			utilsPolicyCreate.prepareTreePolicy();
+			
+			console.log("prepareCreatePoliciesTab");
+			$("#failPolicy").hide();
+			$("#successPolicy").hide();
+			$("#errorCreatePolicyToken").hide();
+			
+			$("#cancelPolicy").click();
+			
+			$("#helpPolicy").tooltip({
+			    content: function () {
+			    	return $(this).prop('title');
+			    }
+		    });
+			
+			$("#confirmPolicy").click(function() {
+				 $("#errorPolicy").hide();
+				 $("#errorFolderEmpty").hide();
+				 $("#policyString").removeClass("error");
+				 $("#fileName").removeClass("error");
+				 var policy=getPolicy();
+		 		 $("#policyString").val(policy);
+		 		 
+			     if(policy==""){
+			      	$("#errorPolicy").show();
+			      	$("#policyString").addClass("error");
+				 }
+			     else{ 
+			       var itemClicked = $("#folderList").jstree("get_selected", true);
+			       		       
+			       if(itemClicked!=null){
+			    	   $("#foldersPolicies").removeClass("error");
+			    	   var folder=null;
+			    	   if(itemClicked[itemClicked.length - 1].type=="folder"){
+			    		   folder = b64utos(itemClicked[itemClicked.length - 1].id);
+			    	   }else{
+			    		   folder = b64utos(itemClicked[itemClicked.length - 1].parent);	
+			    	   }
+			    	   var fileName=$("#fileName").val();
+			    	   if(fileName!=null && fileName!=""){
+			    		   $("#blockly").block({ message: null }); 
+			    			$.blockUI({ message: '<img src="images/ajax-loader.gif" height="50" width="50"/>' });
+							$("#failPolicy").hide();
+							$("#successPolicy").hide();
+							var xml = Blockly.Xml.workspaceToDom(workspace);
+							var xml_text = Blockly.Xml.domToText(xml);
+							 var policy= $("#policyString").val();
+							 var nomeFile= $("#fileName").val();
+
+							 if(folder!=null && folder!="" && nomeFile!=null && nomeFile!="" &&  policy!=null && policy!="" ){
+									$("#errorCreatePolicyToken").hide();
+									var sJWT=generateRequestToken("POST", policyService, folder+"/"+nomeFile, username);
+									requestToken("createPolicies", sJWT, null);
+									var tokenGetPolicies= sessionStorage.getItem("createPoliciesToken");
+									var deferedRequest= $.Deferred();
+									if(tokenGetPolicies==null){
+										$("#errorCreatePolicyToken").show();
+										return;
+									}
+									var inputPolicy={'policy':policy, 'username': username, 'xml_text':xml_text};
+									if(itemClicked[itemClicked.length - 1].type=="policy" && $("#folderList").data("isSelected") == "true"){
+										inputPolicy.id= b64utos(itemClicked[itemClicked.length - 1].id);
+										$("#folderList").data("isSelected", "false");
+									}
+									executeService(tokenGetPolicies, deferedRequest, JSON.stringify(inputPolicy));
+									
+									$.when(deferedRequest).done(function (response) {
+										if(response.code==201){
+											$("#successPolicy").show();
+											$("#policyString").val("");
+											$("#fileName").val("");
+											Blockly.mainWorkspace.clear();
+											$.unblockUI();
+										}else{
+											$("#failPolicy").show();
+											$.unblockUI();
+										}
+										}).fail(function(){
+											$("#failPolicy").show();
+											$.unblockUI();
+										});
+							   }
+						       $("#blockly").unblock();
+			    	   }else{
+			    		   $("#fileName").addClass("error");
+					    }
+				      
+				   }else{
+					   $("#errorFolderSelected").show();
+					}
+			     }
+			});
+			
+			$("#cancelPolicy").click(function() {
+				Blockly.mainWorkspace.clear();
+				$("#blockly").unblock();			       //riabilitare blockly
+				$("#policyString").val("");
+				$("#fileName").val("");
+			});
+			
+			$("#savePolicy").click(function() {	
+				$("#failPolicy").hide();
+				$("#successPolicy").hide();
+				$("#errorFolderEmpty").hide();
+				$.blockUI({ message: '<img src="images/ajax-loader.gif" height="50" width="50"/>' });
+				
+				var xml = Blockly.Xml.workspaceToDom(workspace);
+				var xml_text = Blockly.Xml.domToText(xml);
+				console.log(xml_text);
+				 var folder= $("#foldersPolicies option:selected").text();
+				 var policy= $("#policyString").val();
+				 var nomeFile= $("#fileName").val();
+			       if(folder!=null && folder!="" && nomeFile!=null && nomeFile!="" &&  policy!=null && policy!="" ){
+						$("#errorCreatePolicyToken").hide();
+						var sJWT=generateRequestToken("POST", policyService, folder+"/"+nomeFile, username);
+						requestToken("createPolicies", sJWT, null);
+						var tokenGetPolicies= sessionStorage.getItem("createPoliciesToken");
+						var deferedRequest= $.Deferred();
+						if(tokenGetPolicies==null){
+							$("#errorCreatePolicyToken").show();
+							return;
+						}
+						executeService(tokenGetPolicies, deferedRequest, JSON.stringify({'policy':policy}));
+						$.when(deferedRequest).done(function (response) {
+							if(response.code==201){
+								$("#successPolicy").show();
+								$.unblockUI();
+							}else{
+								$("#failPolicy").show();
+								$.unblockUI();
+							}
+							});
+				   }
+			       $("#blockly").unblock();
+			});
+			
+					
+					
+					function getPolicy() {
+					      // Generate JavaScript code and display it.
+					      Blockly.JavaScript.INFINITE_LOOP_TRAP = null;
+					      var code = Blockly.JavaScript.workspaceToCode(workspace);
+						  code= code.split("*$*").join("").trim();
+						  console.log(code);
+						  try {
+							  parser.parse(code);
+							  code= convert(code);
+							  code= code + " vidasrole:AnalysisSerivces 1of2";
+							  return code;
+						  }
+							catch(err) {
+							code="";
+							return code;
+						}
+					}
+					
+					function convert(policy){
+						var pezzi=policy.trim().split(" ");
+						var map = new Object(); 
+						var countOp=-1;
+						if(pezzi.length==1){
+							return pezzi[0].trim().split("(").join("").split(")").join("");
+						}
+						var result="";
+						for(var i=0; i<policy.trim().split("(").length-1; i++){
+							map[i]=new Object();
+							map[i][0]="";
+							map[i][1] ="";
+							map[i][2] = 0;
+						}
+						for(var i=0; i<pezzi.length; i++){
+							if(pezzi[i].indexOf("(")>=0){
+								if(countOp!=-1){
+									result=result.trim()+" "+map[countOp][1].trim();
+									map[countOp][1]="";
+									map[countOp][2]++;
+								}
+								countOp=countOp+pezzi[i].split("(").length-1;
+								if((pezzi[i].split("(").length-1)>1){
+									for(var x=countOp - pezzi[i].split("(").length + 2; x<countOp; x++){
+										map[x][2]++;
+									}
+								}
+							}
+							var corrente=pezzi[i].split("(").join("");
+							if(corrente=="AND"||corrente=="OR"){
+								map[countOp][0] = corrente;
+								continue;
+							}else{
+								map[countOp][1]=map[countOp][1]+ " " + corrente.split(")").join("").trim();
+								map[countOp][2]++;
+								if(corrente.indexOf(")")>0){
+									for(var j=0; j<corrente.trim().split(")").length-1; j++){
+										if(	map[countOp][0] =="AND"){
+											result=result.trim()+" "+map[countOp][1].trim();
+											result=result.trim()+" "+map[countOp][2]+"of"+map[countOp][2];
+											map[countOp][0] ="";
+											map[countOp][1] ="";
+											map[countOp][2] =0;
+										}else{
+											result=result.trim()+" "+ map[countOp][1].trim();
+											result=result.trim()+" 1of"+map[countOp][2];
+											map[countOp][0] ="";
+											map[countOp][1] ="";
+											map[countOp][2] =0;
+										}
+										countOp--;
+									}
+								}
+							}
+						}
+						return result.trim().split("  ").join(" ");
+					};
+		});
+	</script>
+</head>
+<body>
+	<div class="perc100" style="margin: 5px;">
+		<label id="createPoliciesTitle">Create Policy</label> <label
+			style="display: none;" class="success fieldLabel" id="successPolicy">Saved
+			Correctly</label> <label style="display: none;" class="success fieldLabel"
+			id="successFolder">Folder Created</label> <label style="display: none;" class="success fieldLabel"
+			id="deletedFolder">Folder Deleted</label> <label
+			style="display: none;" class="error fieldLabel" id="failPolicy">Saving
+			Failed</label> <label style="display: none;" class="success fieldLabel"
+			id="successPolicy">Saved Correctly</label> <label
+			style="display: none;" class="error fieldLabel" id="failPolicy">Saving
+			Failed</label> <br /> <label style="display: none;" class="error fieldLabel"
+			id="errorCreatePolicyToken">Error in token generation</label> <label
+			style="display: none;" class="error fieldLabel"
+			id="errorFolderSelected">Folder not selected</label> <label
+			style="display: none;" class="error fieldLabel"
+			id="errorFolderEmpty">Empty Folder</label>
+	</div>
+
+	<div id="dialog-form" title="Create new folder" style="display: none;">
+		<p class="validateTips"></p>
+
+		<form>
+			<fieldset>
+				<label for="folder name">Folder Name</label> <input type="text"
+					name="nameFolderLbl" id="nameFolder" value=""
+					class="text ui-widget-content ui-corner-all"> <input
+					type="submit" tabindex="-1"
+					style="position: absolute; top: -1000px">
+			</fieldset>
+		</form>
+	</div>
+
+	<div id="dialog-confirm" title="Empty the recycle bin?" style="display: none;">
+		<p>
+			<span class="ui-icon ui-icon-alert"
+				style="float: left; margin: 12px 12px 20px 0;"></span>This item
+			will be permanently deleted and cannot be recovered. Are you sure?
+		</p>
+	</div>
+
+	<div id="blocky_container">
+		<xml id="toolbox" style="display: none;"> <block
+			type="or_condition"></block> <block type="and_condition"></block> </xml>
+		<div class="wizzard_container perc50">
+			<div id="blockly"></div>
+
+		</div>
+
+<!-- 		<div class="treeSpinner"></div> -->
+		<label class="fieldLabel" id="selectFolderLbl"
+			style="margin-left: 11px; position: absolute; margin-top: 4px;">Select
+			Folder</label>
+		<div id="folderContainer"
+			style="height: 32%; width: 50%; position: relative; float: right; overflow: auto; margin-top: 20px;">
+			<div class="treeSpinner"></div>
+			<div id="folderList"
+				style="text-align: left; width: 96%; padding-top: 6px;"
+				class="perc50"></div>
+		</div>
+		<div class="perc50"
+			style="text-align: left; min-height: auto; margin: 5px">
+			<div id="control" style="float: right">
+				<input type="button" class="button help"
+					title="
+			<div>
+				<p style='text-align:justify'> Drag the attributes and conditions to create your own policy.<br/>
+				To link two or more attributes to each other using the condition, inserting the attributes in the condition. <br/>
+				Look the example.<br/> 
+				<img src='images/examplePolicy.png' style='margin:10px'/>
+				(Surname=Verdi OR (Country=IT AND Organization=Fincons AND (Email=mario.rossi@gmail.com OR Email=giuseppe.gialli@live.com)) OR Surname=Rampolli)
+			</p>
+			</div>"
+					id="helpPolicy" value="?" style="width: auto;" />
+			</div>
+
+			<br /> <label class="fieldLabel" id="namePolicyLbl">Name
+				Policy</label> <input id="fileName" name="policyText"> <label
+				class="fieldLabel" id="nameFolderLbl" style="display: none;">Name
+				Folder</label> <input id="fileName" name="folderText" style="display: none;">
+			<br /> <label class="fieldLabel" id="textPolicyLbl">Text
+				Policy</label> <label style="display: none;" class="error fieldLabel"
+				id="errorPolicy">Incorrect Policy</label>
+			<textArea id="policyString" name="policyText" class="textAreaPolicy"
+				rows="5" readOnly="readOnly"></textArea>
+		</div>
+		<div class="clear"></div>
+	</div>
+	<div class="perc100">
+		<input type="button" class="button" id="confirmPolicy"
+			value="Confirm Policy" style="width: auto;" /> <input type="button"
+			class="button" id="updatePolicy" value="Update Policy"
+			style="width: auto; display: none" /> <input type="button"
+			class="button" id="cancelPolicy" value="Cancel" style="width: auto;" />
+	</div>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="../css/mainTab.css">
+<script>
+	$(document).ready(function(){
+		var username = sessionStorage.getItem('user');
+		var analyzedService = sessionStorage.getItem('analyzedServ');
+		$(".treeSpinner").show();
+		prepareTreeVideo("#listVideosAnalyzed", "#listTreeVideoAnalyzed", "#nameFileToDownloadAnalyzed",username, analyzedService, "downloadVideoAnalyzed");
+		$(".treeSpinner").hide();
+		var personalKey= sessionStorage.getItem("personalKey");
+		var publicKey= sessionStorage.getItem("publicKey");
+		$("#nameFileToDownloadAnalyzed").val("");
+		if((publicKey==null || publicKey=="") && (personalKey==null || personalKey=="")){
+			$('#errorKeyDownloadAnalyzed').show();
+			$("#downloadFileButton").prop('disabled', true);
+		}else{
+			$('#publicKeyDownloadAnalyzed').val(publicKey);
+			$('#personalKeyDownloadAnalyzed').val(personalKey);
+			$("#downloadFileButton").prop('disabled', false);
+			$('#errorKeyDownloadAnalyzed').hide();
+		}
+		
+		$("#downloadFileButton").click(function() {
+			
+			$("#errorFilterAnalized").hide();
+			var nomeFile=  $("#nameFileToDownloadAnalyzed").val();
+			if(nomeFile==null || nomeFile==""){
+				 $("#nameFileToDownloadAnalyzed").addClass("error");
+				 $("#errorFilterAnalized").show();
+				 return
+			}else{			
+				 $("#nameFileToDownloadAnalyzed").removeClass("error");
+				 $.blockUI({ message: '<img src="images/ajax-loader.gif" height="50" width="50"/>' });
+				 sJWT=generateRequestToken("GET", analyzedService, nomeFile, username);	
+				 tokenGetVideo=requestToken(null, sJWT, null);	
+				 var url="analizedProxy";
+				 var payloadObj = KJUR.jws.JWS.readSafeJSONString(b64utoutf8(tokenGetVideo.split(".")[1]));
+					var deferredDecrypt= $.Deferred();
+					decrypt(sessionStorage.getItem("userSecret"), payloadObj['secureBrow'], deferredDecrypt);
+					$.when(deferredDecrypt).done(function (secureCode) {
+						if(secureCode!=null && secureCode!=""){
+							var oNewPayload = {};
+							var tNewTokenEnd = KJUR.jws.IntDate.get('now') + 3600;
+							oNewPayload.sub = username;
+							oNewPayload.exp = tNewTokenEnd;
+							oNewPayload.token=tokenGetVideo;
+							var sNewPayload = JSON.stringify(oNewPayload)
+							var newsJWT=KJUR.jws.JWS.sign("HS256", sHeader, sNewPayload, secureCode);
+							var actionAutorizhed=payloadObj['action'];
+							if(JSON.stringify(actionAutorizhed) == JSON.stringify({})){
+								$.unblockUI();
+								$("#home").click();
+// 								alert("unAuthorized");
+							}else{
+								$.ajax({
+							         url: url,	// url, //YOU_URL_TO_WHICH_DATA_SEND
+							         type: "POST",			// method,
+							         dataType: 'json',
+							         data:JSON.stringify({publicKey:$('#publicKeyDownloadAnalyzed').val(), personalKey:$('#personalKeyDownloadAnalyzed').val(), nameFile:nomeFile}),
+							         beforeSend: function(xhr){xhr.setRequestHeader('Authorization', newsJWT);},
+							         success: function(data) {
+							        	 $.unblockUI();
+								         if(data.code==200){
+					        	  			window.location.assign(data.url);
+								         }else{
+								        	 $("#failVideoDownloadAnalyzed").show();
+//	 										 setTimeout(function() { $("#failVideoDownload").hide();}, 6000);
+									     }
+									},
+					        		error: function(xhr, error, message) {
+					        			$.unblockUI();
+							        	if(xhr.status==401){
+											logoutUser();
+							        	}else{
+											$("#failVideoDownloadAnalyzed").show();
+//	 										setTimeout(function() { $("#failVideoDownload").hide();}, 6000);
+								        }
+									}
+					     		});
+							}
+						}else{
+							$.unblockUI();
+							console.log("Error SecureCode");
+						}
+					});
+			}
+
+		});
+	});
+</script>
+</head>
+<body>
+<div class="perc100">
+	<label style="display: none;" class="error fieldLabel" id="failVideoDownloadAnalyzed">Download Failed</label>
+	<label id="errorFilterAnalyzed" class="error fieldLabel" style="display: none;">Error in red field</label>
+	<label id="errorKeyDownloadAnalyzed" class="error fieldLabel" style="display: none;">Before using the Encrypt/Decrypt features, please acquire the KGS's public and your personal Keys (see Generate Keys Tab)</label>
+</div>
+<div>
+	<form method="POST" enctype="multipart/form-data"
+		action="analyzedProxy" id="downloadForm">
+		<div class="perc100">
+				<div class="perc50">
+					<div class="treeSpinner" ></div>
+					<div id="listVideosAnalyzed" style="text-align: left;"	class="perc50">
+						<div id="listTreeVideoAnalyzed"></div>
+					</div>
+				</div>
+				<div class="perc50">
+					<input type="hidden" id="publicKeyDownloadAnalyzed" name="publicKey"></input> 
+					<input type="hidden" id="personalKeyDownloadAnalyzed" name="personalKey"></input> 
+					<label class="fieldLabel" id="fileSelectedLbl"> File Selected</label>
+					<input id="nameFileToDownloadAnalyzed" name="nameFile" style="width:auto;"></input>
+				</div>
+		</div>
+		<div class="clear">
+			<input type="button" class="button" id="downloadFileButton"
+					value="Start Download" style="width: auto;" />
+		</div>
+
+	</form>
+</div>
+</body>
+</html>
