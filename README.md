@@ -1,3 +1,5 @@
+[![DepShield Badge](https://depshield.sonatype.org/badges/FINCONS-IBD/VidAS/depshield.svg)](https://depshield.github.io)
+
 # VidAS  
 
 The VidAS system provides a secure, scalable video archiving and processing system. The VidAS system has been designed according to the Security-by-Design, Privacy-by-Design and Security-by-Default and Privacy-by-Default principles.  
