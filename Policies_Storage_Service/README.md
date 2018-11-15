@@ -1,3 +1,5 @@
+[![DepShield Badge](https://depshield.sonatype.org/badges/FINCONS-IBD/VidAS/depshield.svg)](https://depshield.github.io)
+
 # Policies_Storage_Service  
 
 Policies_Storage_Service is a web service which cares of managing Policies and Directories stored in a database. It embraces the functionalities exposed by Storage_Service_DBManagement.  

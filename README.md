@@ -13,3 +13,8 @@ From the security point of view, in addition to the CP-ABE  encryption technique
 * JWT .  
 
 To increase system’s security every operation requires a specific Authorization Token that is dynamically generated based on the user’s profile and requested operation.
+
+## Important note
+We fixed some issues in the way the encryption is managed between the ABE-Proxy and the data source or data consumer components (specifically in the CPABE and Device-Entity libraries). To this end we have produced a new version of these components that are available on [this](https://github.com/FINCONS-IBD/MQTT-SeDEM) GitHub Repository.
+
+N.B.: using the new versions requires an update of the client or server side modules.

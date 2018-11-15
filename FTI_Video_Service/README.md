@@ -1,3 +1,5 @@
+[![DepShield Badge](https://depshield.sonatype.org/badges/FINCONS-IBD/VidAS/depshield.svg)](https://depshield.github.io)
+
 # FTI_Video_Service  
 
 FTI_Video_Service provides the web GUI through which end-users, after login, can access the functionalities of the system. It is configurable by editing the configuration file "config.properties" stored inside "resources/config" folder.

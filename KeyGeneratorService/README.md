@@ -1,3 +1,5 @@
+[![DepShield Badge](https://depshield.sonatype.org/badges/FINCONS-IBD/VidAS/depshield.svg)](https://depshield.github.io)
+
 # KeyGeneratorService  
 
 The KeyGeneratorService is a critical component required to support the encryption of information (e.g., video files) using the CP-ABE encryption technique.  
